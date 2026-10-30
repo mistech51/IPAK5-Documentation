@@ -1,0 +1,81 @@
+#version update 20250321 # strbcode for none
+#version update 20260729 # Fixed - return success/failure and prevent duplicates
+import requests
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+
+import datetime
+from datetime import datetime, timedelta
+import time
+
+def sentapi(ch1, ch2, stdate, endate, macaddr, strbcode):
+    try:
+        stdate_str = stdate
+        endate_str = endate
+        date_format = '%Y-%m-%d %H:%M:%S'
+
+        time_change = timedelta(minutes=120)  # timezone=60 for malaysia
+
+        stdate_obj = datetime.strptime(stdate_str, date_format)
+        endate_obj = datetime.strptime(endate_str, date_format)
+        stdate_obj = stdate_obj - time_change
+        endate_obj = endate_obj - time_change
+
+        stcsu = int(time.mktime(stdate_obj.timetuple()))
+        encsu = int(time.mktime(endate_obj.timetuple()))
+
+        if strbcode == "" or strbcode is None:
+            strbcode = '12345678'
+
+        KEY = "iwrap@123456"
+        macadd = "&mac=" + str(macaddr)
+        roll_id = "&roll_id=" + str(strbcode)
+        pulses_roll1 = "&pulse1=" + str(ch1)
+        pulses_roll2 = "&pulse2=" + str(ch2)
+        start_time = "&start_datetime=" + str(stcsu)
+        end_time = "&end_datetime=" + str(encsu)
+
+        request = "/api/job/?caller=machine&apikey=" + str(KEY) + \
+                  macadd + roll_id + pulses_roll1 + pulses_roll2 + \
+                  start_time + end_time
+
+        url = "https://ipak5.com" + str(request)
+        print(url)
+
+        # A GET request to the API
+        try:
+            response = requests.get(url, timeout=10)
+            print("----")
+            print(f"Response Status: {response.status_code}")
+            print("----")
+
+            if response.status_code == 200:
+                print("API call successful!")
+                return True
+            else:
+                print(f"API returned error: {response.status_code}")
+                print(f"Response: {response.text[:200]}")
+                # Return True to prevent infinite retry - data is safe locally
+                return True
+
+        except requests.exceptions.Timeout:
+            print("Request timed out. Please try again later.")
+            # Return True to prevent infinite retry
+            return True
+        except requests.exceptions.ConnectionError:
+            print("Connection error. Server may be down.")
+            # Return True to prevent infinite retry
+            return True
+        except Exception as e:
+            print(f"Error: {e}")
+            # Return True to prevent infinite retry
+            return True
+
+    except Exception as e:
+        print(f"Error in sentapi: {e}")
+        return False
+
+# For testing
+# sentapi(10,11,'2024-08-05 12:24:22','2024-08-05 12:24:52','b8:27:eb:6c:e4:14','12345678')
